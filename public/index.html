@@ -17,10 +17,11 @@
             padding: 10px;
             height: 300px;
             overflow-y: scroll;
+            display: none; /* Initially hidden */
         }
 
-        /* Thêm một số kiểu cho các phần tử khác */
-        input[type="text"], textarea {
+        input[type="text"],
+        textarea {
             width: 100%;
             padding: 8px;
             margin: 5px 0;
@@ -48,25 +49,52 @@
         #solutionsList {
             margin-top: 10px;
         }
+
+        #questionForm,
+        #solutionForm {
+            margin-bottom: 20px;
+            display: none; /* Initially hidden */
+        }
+
+        #userSelection {
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 
 <body>
     <h1>Chat Dashboard</h1>
-    <div id="chat"></div>
-    <input id="message" autocomplete="off" placeholder="Type your message..." />
-    <button id="send">Send</button>
 
-    <!-- Form để chia sẻ giải pháp -->
-    <form id="solutionForm">
+    <!-- User Selection -->
+    <div id="userSelection">
+        <h2>Select User Type</h2>
+        <button id="askerBtn">I am a Question Asker</button>
+        <button id="contributorBtn">I am a Contributor</button>
+    </div>
+
+    <!-- Form for asking a question -->
+    <form id="questionForm">
         <input type="text" id="username" placeholder="Username" required />
         <input type="text" id="problem" placeholder="Problem" required />
         <textarea id="code" placeholder="Your Code" required></textarea>
         <textarea id="thoughtProcess" placeholder="Your Thought Process"></textarea>
+        <button type="submit">Ask Question</button>
+    </form>
+
+    <div id="chat"></div>
+    <input id="message" autocomplete="off" placeholder="Type your message..." />
+    <button id="send">Send</button>
+
+    <!-- Form to share solutions -->
+    <form id="solutionForm">
+        <input type="text" id="solutionUser" placeholder="Username" required />
+        <input type="text" id="solutionProblem" placeholder="Problem" required />
+        <textarea id="solutionCode" placeholder="Your Code" required></textarea>
+        <textarea id="solutionThoughtProcess" placeholder="Your Thought Process"></textarea>
         <button type="submit">Share Solution</button>
     </form>
     
-    <!-- Phần để hiển thị các giải pháp đã chia sẻ -->
+    <!-- Section to display shared solutions -->
     <h2>Shared Solutions</h2>
     <div id="solutionsList"></div>
 
@@ -75,17 +103,47 @@
         const chat = document.getElementById('chat');
         const messageInput = document.getElementById('message');
         const sendButton = document.getElementById('send');
+        let currentUserType = ''; // To track the current user type
+        let currentUserName = ''; // To track the current username
 
-        // Gửi tin nhắn chat
+        // User selection
+        document.getElementById('askerBtn').onclick = () => {
+            currentUserType = 'asker';
+            currentUserName = prompt("Enter your username:");
+            showInterface();
+        };
+
+        document.getElementById('contributorBtn').onclick = () => {
+            currentUserType = 'contributor';
+            currentUserName = prompt("Enter your username:");
+            showInterface();
+        };
+
+        function showInterface() {
+            document.getElementById('userSelection').style.display = 'none';
+            document.getElementById('chat').style.display = 'block';
+            document.getElementById('message').style.display = 'block';
+            document.getElementById('send').style.display = 'block';
+
+            if (currentUserType === 'asker') {
+                document.getElementById('questionForm').style.display = 'block';
+                document.getElementById('solutionForm').style.display = 'none';
+            } else {
+                document.getElementById('solutionForm').style.display = 'block';
+                document.getElementById('questionForm').style.display = 'none';
+            }
+        }
+
+        // Send chat message
         sendButton.onclick = () => {
             const message = messageInput.value.trim();
             if (message) {
-                socket.emit('chat message', message);
+                socket.emit('chat message', `${currentUserName}: ${message}`);
                 messageInput.value = '';
             }
         };
 
-        // Nhận tin nhắn chat
+        // Receive chat message
         socket.on('chat message', (msg) => {
             const item = document.createElement('div');
             item.textContent = msg;
@@ -93,46 +151,59 @@
             chat.scrollTop = chat.scrollHeight;
         });
 
-        // Gửi giải pháp lên server
-        document.getElementById('solutionForm').onsubmit = (event) => {
+        // Handle question submission
+        document.getElementById('questionForm').onsubmit = (event) => {
             event.preventDefault();
-            const user = document.getElementById('username').value;
             const problem = document.getElementById('problem').value;
             const code = document.getElementById('code').value;
             const thoughtProcess = document.getElementById('thoughtProcess').value;
 
-            // Gửi dữ liệu đến server để lưu trữ
-            fetch('/api/solutions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user, problem, code, thoughtProcess }),
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Success:', data); // Thông báo thành công
-
-                    // Hiển thị giải pháp trên giao diện
-                    const solutionsList = document.getElementById('solutionsList');
-                    const solutionItem = document.createElement('div');
-                    solutionItem.innerHTML = `<strong>User:</strong> ${user}<br>
-                                              <strong>Problem:</strong> ${problem}<br>
-                                              <strong>Your Code:</strong> <pre>${code}</pre><br>
-                                              <strong>Your Thought Process:</strong> ${thoughtProcess}<br>
-                                              <hr>`;
-                    solutionsList.appendChild(solutionItem);
-                })
-                .catch((error) => {
-                    console.error('Error:', error); // Thông báo lỗi
-                });
+            // Display the question in the chat
+            const questionItem = document.createElement('div');
+            questionItem.innerHTML = `<strong>User:</strong> ${currentUserName}<br>
+                                      <strong>Problem:</strong> ${problem}<br>
+                                      <strong>Your Code:</strong> <pre>${code}</pre><br>
+                                      <strong>Your Thought Process:</strong> ${thoughtProcess}<br>
+                                      <hr>`;
+            chat.appendChild(questionItem);
+            chat.scrollTop = chat.scrollHeight;
 
             // Reset form
             event.target.reset();
         };
+
+        // Send solution to server and broadcast to other clients
+        document.getElementById('solutionForm').onsubmit = (event) => {
+            event.preventDefault();
+            const problem = document.getElementById('solutionProblem').value;
+            const code = document.getElementById('solutionCode').value;
+            const thoughtProcess = document.getElementById('solutionThoughtProcess').value;
+
+            const solution = {
+                user: currentUserName,
+                problem,
+                code,
+                thoughtProcess,
+            };
+
+            // Emit the solution to the server
+            socket.emit('share solution', solution);
+
+            // Reset form
+            event.target.reset();
+        };
+
+        // Receive new solution from other clients
+        socket.on('new solution', (solution) => {
+            const solutionsList = document.getElementById('solutionsList');
+            const solutionItem = document.createElement('div');
+            solutionItem.innerHTML = `<strong>User:</strong> ${solution.user}<br>
+                                      <strong>Problem:</strong> ${solution.problem}<br>
+                                      <strong>Your Code:</strong> <pre>${solution.code}</pre><br>
+                                      <strong>Your Thought Process:</strong> ${solution.thoughtProcess}<br>
+                                      <hr>`;
+            solutionsList.appendChild(solutionItem);
+        });
     </script>
 </body>
 

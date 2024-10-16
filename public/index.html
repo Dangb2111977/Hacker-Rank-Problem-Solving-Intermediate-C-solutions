@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Chat</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        #chat {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+        }
+
+        /* Thêm một số kiểu cho các phần tử khác */
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+
+        h2 {
+            margin-top: 20px;
+        }
+
+        #solutionsList {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Chat Dashboard</h1>
+    <div id="chat"></div>
+    <input id="message" autocomplete="off" placeholder="Type your message..." />
+    <button id="send">Send</button>
+
+    <!-- Form để chia sẻ giải pháp -->
+    <form id="solutionForm">
+        <input type="text" id="username" placeholder="Username" required />
+        <input type="text" id="problem" placeholder="Problem" required />
+        <textarea id="code" placeholder="Your Code" required></textarea>
+        <textarea id="thoughtProcess" placeholder="Your Thought Process"></textarea>
+        <button type="submit">Share Solution</button>
+    </form>
+    
+    <!-- Phần để hiển thị các giải pháp đã chia sẻ -->
+    <h2>Shared Solutions</h2>
+    <div id="solutionsList"></div>
+
+    <script>
+        const socket = io();
+        const chat = document.getElementById('chat');
+        const messageInput = document.getElementById('message');
+        const sendButton = document.getElementById('send');
+
+        // Gửi tin nhắn chat
+        sendButton.onclick = () => {
+            const message = messageInput.value.trim();
+            if (message) {
+                socket.emit('chat message', message);
+                messageInput.value = '';
+            }
+        };
+
+        // Nhận tin nhắn chat
+        socket.on('chat message', (msg) => {
+            const item = document.createElement('div');
+            item.textContent = msg;
+            chat.appendChild(item);
+            chat.scrollTop = chat.scrollHeight;
+        });
+
+        // Gửi giải pháp lên server
+        document.getElementById('solutionForm').onsubmit = (event) => {
+            event.preventDefault();
+            const user = document.getElementById('username').value;
+            const problem = document.getElementById('problem').value;
+            const code = document.getElementById('code').value;
+            const thoughtProcess = document.getElementById('thoughtProcess').value;
+
+            // Gửi dữ liệu đến server để lưu trữ
+            fetch('/api/solutions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user, problem, code, thoughtProcess }),
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Success:', data); // Thông báo thành công
+
+                    // Hiển thị giải pháp trên giao diện
+                    const solutionsList = document.getElementById('solutionsList');
+                    const solutionItem = document.createElement('div');
+                    solutionItem.innerHTML = `<strong>User:</strong> ${user}<br>
+                                              <strong>Problem:</strong> ${problem}<br>
+                                              <strong>Your Code:</strong> <pre>${code}</pre><br>
+                                              <strong>Your Thought Process:</strong> ${thoughtProcess}<br>
+                                              <hr>`;
+                    solutionsList.appendChild(solutionItem);
+                })
+                .catch((error) => {
+                    console.error('Error:', error); // Thông báo lỗi
+                });
+
+            // Reset form
+            event.target.reset();
+        };
+    </script>
+</body>
+
+</html>

@@ -11,6 +11,7 @@
 #define BUFFER_SIZE 1024
 
 int client_sockets[MAX_CLIENTS];
+char client_names[MAX_CLIENTS][50]; // Lưu trữ tên client
 int num_clients = 0;
 
 DWORD WINAPI handle_client(LPVOID param)
@@ -19,13 +20,18 @@ DWORD WINAPI handle_client(LPVOID param)
     char buffer[BUFFER_SIZE];
     int bytes_received;
 
-    // Thông báo khi client kết nối
-    printf("Client %d connected\n", sock);
+    // Yêu cầu tên người dùng
+    char name[50];
+    send(sock, "Enter your name: ", 17, 0);
+    recv(sock, name, sizeof(name), 0);
+    name[strcspn(name, "\n")] = 0;    // Xóa ký tự newline
+    strcpy(client_names[sock], name); // Lưu tên client
+    printf("%s connected\n", name);
 
     while ((bytes_received = recv(sock, buffer, sizeof(buffer), 0)) > 0)
     {
         buffer[bytes_received] = '\0'; // Null-terminate the string
-        printf("Client %d: %s\n", sock, buffer);
+        printf("%s: %s\n", name, buffer);
 
         // Broadcast message to all clients
         for (int i = 0; i < num_clients; i++)
@@ -38,7 +44,7 @@ DWORD WINAPI handle_client(LPVOID param)
     }
 
     // Thông báo khi client ngắt kết nối
-    printf("Client %d disconnected\n", sock);
+    printf("%s disconnected\n", name);
 
     // Remove client from list and close socket
     for (int i = 0; i < num_clients; i++)

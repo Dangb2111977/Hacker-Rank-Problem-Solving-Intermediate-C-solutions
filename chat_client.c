@@ -22,7 +22,7 @@ DWORD WINAPI receive_messages(LPVOID arg)
             printf("Connection closed by server.\n");
             break;
         }
-        buffer[bytes_received] = '\0'; // Null-terminate the string
+        buffer[bytes_received] = '\0';
         printf("Received: %s\n", buffer);
     }
     return 0;
